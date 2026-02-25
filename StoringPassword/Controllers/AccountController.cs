@@ -2,17 +2,18 @@
 using StoringPassword.Models;
 using StoringPassword.ViewModels;
 using System.Security.Cryptography;
+using StoringPassword.Services;
 using System.Text;
 
 namespace StoringPassword.Controllers
 {
     public class AccountController : Controller 
     {
-        private readonly GuestBookContext _context;
+        private readonly GuestBookService _guestBookService;
 
-        public AccountController(GuestBookContext context)
+        public AccountController(GuestBookService guestBookService)
         {
-            _context = context;
+            _guestBookService = guestBookService;
         }
 
         public ActionResult Login()
@@ -22,43 +23,40 @@ namespace StoringPassword.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Login(LoginModel login_model)
+        public async Task<IActionResult> Login(LoginModel login_model)
         {
-            if (ModelState.IsValid) 
+            if (!ModelState.IsValid)
             {
-                if (_context.Users.ToList().Count == 0)
-                {
-                    ModelState.AddModelError("", "Невірний логін або пароль!");
-                    return View(login_model);
-                }
-
-                var users = _context.Users.Where(a => a.Login == login_model.Login);
-                if (users.ToList().Count == 0)
-                {
-                    ModelState.AddModelError("", "Невірний логін або пароль!");
-                    return View(login_model);
-                }
-
-                var user = users.First();
-                string? salt = user.Salt;
-
-                byte[] password = Encoding.Unicode.GetBytes(salt + login_model.Password);
-                var md5 = MD5.Create();
-                byte[] byteHash = md5.ComputeHash(password);
-
-                var hash = new StringBuilder(byteHash.Length);
-                for (int i = 0; i < byteHash.Length; i++)
-                    hash.Append(string.Format("{0:X2}", byteHash[i]));
-                if (user.Password != hash.ToString())
-                {
-                    ModelState.AddModelError("", "Невірний логін або пароль!");
-                    return View(login_model);
-                }
-
-                HttpContext.Session.SetString("Login", user.Login);
-                return RedirectToAction("Index", "Home");
+                return View(login_model);
             }
-            return View(login_model);
+            var user = await _guestBookService.GetUserByLoginAsync(login_model.Login);
+
+            if (user == null)
+            {
+                ModelState.AddModelError("", "Невірний логін або пароль!");
+                return View(login_model);
+            }
+
+            string salt = user.Salt;
+            byte[] passwordBytes = Encoding.Unicode.GetBytes(salt + login_model.Password);
+
+            using (var md5 = MD5.Create())
+            {
+                byte[] byteHash = md5.ComputeHash(passwordBytes);
+
+                var hashBuilder = new StringBuilder(byteHash.Length);
+                for (int i = 0; i < byteHash.Length; i++)
+                {
+                    hashBuilder.Append(byteHash[i].ToString("X2"));
+                }
+                if (user.Password != hashBuilder.ToString())
+                {
+                    ModelState.AddModelError("", "Невірний логін або пароль!");
+                    return View(login_model);
+                }
+            }
+            HttpContext.Session.SetString("Login", user.Login);
+            return RedirectToAction("Index", "Home");
         }
 
         public IActionResult Register()
@@ -68,12 +66,12 @@ namespace StoringPassword.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult Register(RegisterModel reg)
+        public async Task<IActionResult> Register(RegisterModel reg)
         {
             if (ModelState.IsValid)
             {
-                var existingUser = _context.Users.FirstOrDefault(u => u.Login == reg.Login);
-                if (existingUser != null)
+                var existingUser = await _guestBookService.GetUserByLoginAsync(reg.Login);
+                if (existingUser is not null)
                 {
                     ModelState.AddModelError("Login", "Користувач з таким логіном вже існує");
                     return View(reg);
@@ -103,8 +101,7 @@ namespace StoringPassword.Controllers
 
                 user.Password = hash.ToString();
                 user.Salt = salt;
-                _context.Users.Add(user);
-                _context.SaveChanges();
+                await _guestBookService.CreateUserAsync(user);
                 return RedirectToAction("Login");
             }
             return View(reg);

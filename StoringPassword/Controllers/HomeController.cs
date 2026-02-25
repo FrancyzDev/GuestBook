@@ -1,39 +1,29 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using StoringPassword.Models;
 using StoringPassword.ViewModels;
+using StoringPassword.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace StoringPassword.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly GuestBookContext _context;
+        private readonly GuestBookService _guestBookService;
 
-        public HomeController(GuestBookContext context)
+        public HomeController(GuestBookService guestBookService)
         {
-            _context = context;
+            _guestBookService = guestBookService;
         }
 
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            var messages = _context.Messages
-                .Include(m => m.User)
-                .OrderByDescending(m => m.DateTime)
-                .Select(m => new MessageModel
-                {
-                    Id = m.Id,
-                    UserLogin = m.User.Login,
-                    Text = m.Text,
-                    DateTime = m.DateTime
-                })
-                .ToList();
-
+            var messages = await _guestBookService.GetAllMessagesModelAsync();
             return View(messages);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult AddMessage(string text)
+        public async Task<IActionResult> AddMessage(string text)
         {
             var login = HttpContext.Session.GetString("Login");
             if (string.IsNullOrEmpty(login))
@@ -41,7 +31,7 @@ namespace StoringPassword.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var user = _context.Users.FirstOrDefault(u => u.Login == login);
+            var user = await _guestBookService.GetUserByLoginAsync(login);
             if (user == null)
             {
                 return RedirectToAction("Login", "Account");
@@ -56,8 +46,7 @@ namespace StoringPassword.Controllers
                     DateTime = DateTime.Now
                 };
 
-                _context.Messages.Add(message);
-                _context.SaveChanges();
+                await _guestBookService.CreateMessageAsync(message);
             }
 
             return RedirectToAction("Index");

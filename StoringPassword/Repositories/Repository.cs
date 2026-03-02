@@ -1,13 +1,15 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using StoringPassword.Interfaces;
 using StoringPassword.Models;
 using StoringPassword.ViewModels;
 
-namespace StoringPassword.Services
+namespace StoringPassword.Repositories
 {
-    public class GuestBookService
+    public class Repository : IRepository
     {
         private readonly GuestBookContext _context;
-        public GuestBookService(GuestBookContext context)
+
+        public Repository(GuestBookContext context)
         {
             _context = context;
         }

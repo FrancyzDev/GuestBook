@@ -1,19 +1,19 @@
 ﻿using Microsoft.AspNetCore.Mvc; 
+using StoringPassword.Interfaces;
 using StoringPassword.Models;
 using StoringPassword.ViewModels;
 using System.Security.Cryptography;
-using StoringPassword.Services;
 using System.Text;
 
 namespace StoringPassword.Controllers
 {
     public class AccountController : Controller 
     {
-        private readonly GuestBookService _guestBookService;
+        private readonly IRepository _repository;
 
-        public AccountController(GuestBookService guestBookService)
+        public AccountController(IRepository repository)
         {
-            _guestBookService = guestBookService;
+            _repository = repository;
         }
 
         public ActionResult Login()
@@ -29,7 +29,7 @@ namespace StoringPassword.Controllers
             {
                 return View(login_model);
             }
-            var user = await _guestBookService.GetUserByLoginAsync(login_model.Login);
+            var user = await _repository.GetUserByLoginAsync(login_model.Login);
 
             if (user == null)
             {
@@ -70,7 +70,7 @@ namespace StoringPassword.Controllers
         {
             if (ModelState.IsValid)
             {
-                var existingUser = await _guestBookService.GetUserByLoginAsync(reg.Login);
+                var existingUser = await _repository.GetUserByLoginAsync(reg.Login);
                 if (existingUser is not null)
                 {
                     ModelState.AddModelError("Login", "Користувач з таким логіном вже існує");
@@ -101,7 +101,7 @@ namespace StoringPassword.Controllers
 
                 user.Password = hash.ToString();
                 user.Salt = salt;
-                await _guestBookService.CreateUserAsync(user);
+                await _repository.CreateUserAsync(user);
                 return RedirectToAction("Login");
             }
             return View(reg);

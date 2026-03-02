@@ -1,18 +1,16 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using StoringPassword.Interfaces;
 using StoringPassword.Models;
-using StoringPassword.Services;
+using StoringPassword.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession();
-
-string? connection = builder.Configuration.GetConnectionString("DefaultConnection");
-
 builder.Services.AddDbContext<GuestBookContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<GuestBookService>();
+builder.Services.AddScoped<IRepository, Repository>();
 
 builder.Services.AddControllersWithViews();
 

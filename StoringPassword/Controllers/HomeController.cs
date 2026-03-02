@@ -1,24 +1,21 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using StoringPassword.Interfaces;
 using StoringPassword.Models;
-using StoringPassword.ViewModels;
-using StoringPassword.Services;
-using Microsoft.EntityFrameworkCore;
 
 namespace StoringPassword.Controllers
 {
     public class HomeController : Controller
     {
-        private readonly GuestBookService _guestBookService;
+        private readonly IRepository _repository;
 
-        public HomeController(GuestBookService guestBookService)
+        public HomeController(IRepository repository)
         {
-            _guestBookService = guestBookService;
+            _repository = repository;
         }
 
         public async Task<IActionResult> Index()
         {
-            var messages = await _guestBookService.GetAllMessagesModelAsync();
-            return View(messages);
+            return View(await _repository.GetAllMessagesModelAsync());
         }
 
         [HttpPost]
@@ -31,7 +28,7 @@ namespace StoringPassword.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var user = await _guestBookService.GetUserByLoginAsync(login);
+            var user = await _repository.GetUserByLoginAsync(login);
             if (user == null)
             {
                 return RedirectToAction("Login", "Account");
@@ -46,7 +43,7 @@ namespace StoringPassword.Controllers
                     DateTime = DateTime.Now
                 };
 
-                await _guestBookService.CreateMessageAsync(message);
+                await _repository.CreateMessageAsync(message);
             }
 
             return RedirectToAction("Index");
